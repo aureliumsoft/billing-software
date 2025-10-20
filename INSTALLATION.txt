@@ -1,0 +1,109 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                  CAFE POS SYSTEM - INSTALLATION                  ║
+║                    Quick Start Instructions                       ║
+╚══════════════════════════════════════════════════════════════════╝
+
+📋 PREREQUISITES
+────────────────
+✓ Node.js (v16 or higher) - Download from https://nodejs.org/
+✓ Terminal/Command Prompt access
+
+📦 INSTALLATION STEPS
+────────────────────────
+
+1. OPEN TERMINAL
+   - Windows: Open Command Prompt or PowerShell
+   - Mac: Open Terminal
+   - Navigate to: E:\Tehseen\cafe
+
+2. INSTALL DEPENDENCIES
+   Run this command:
+   
+   npm install
+   
+   Wait for installation to complete (may take 2-5 minutes)
+
+3. START THE APPLICATION
+   Run this command:
+   
+   npm run electron-dev
+   
+   This will:
+   - Start the development server
+   - Open the application window automatically
+
+🔐 FIRST LOGIN
+──────────────
+Username: admin
+Password: admin123
+
+✨ WHAT'S INCLUDED
+─────────────────
+✓ Complete POS system with token-based billing
+✓ Product & Category management
+✓ Order management with cancel/reprint
+✓ Expense tracking
+✓ Profit/Loss reports with charts
+✓ Receipt printing functionality
+✓ Modern beautiful UI
+
+📁 SAMPLE DATA
+──────────────
+The app comes with:
+- 1 Admin user
+- 4 Product categories
+- 10 Sample products
+- Ready to use immediately!
+
+🎯 NEXT STEPS
+─────────────
+1. Login with admin/admin123
+2. Explore the dashboard
+3. Try creating a test order in POS
+4. Check out the reports section
+5. Add your real products
+6. Start using it for your cafe!
+
+⚡ QUICK COMMANDS
+────────────────
+Development mode:  npm run electron-dev
+Build app:         npm run build
+Package app:       npm run package
+
+📚 DOCUMENTATION
+────────────────
+- README.md     - Complete feature documentation
+- SETUP.md      - Detailed setup guide
+- FEATURES.md   - Full features list (100+)
+
+🐛 TROUBLESHOOTING
+──────────────────
+Issue: "npm not found"
+Fix: Install Node.js from https://nodejs.org/
+
+Issue: "Port 3000 in use"
+Fix: Close other apps using port 3000 or restart computer
+
+Issue: "Dependencies not installing"
+Fix: Delete node_modules folder and run npm install again
+
+💡 TIPS
+───────
+- The database is created automatically on first run
+- All data is stored locally (offline system)
+- Print requires a connected printer
+- Use the search in POS for quick product access
+- Check Dashboard for daily statistics
+
+🎉 READY TO GO!
+───────────────
+After installation, just run:
+npm run electron-dev
+
+And start managing your cafe! ☕
+
+════════════════════════════════════════════════════════════════════
+For support or questions, refer to README.md
+════════════════════════════════════════════════════════════════════
+
+
