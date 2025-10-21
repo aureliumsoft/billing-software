@@ -27,11 +27,56 @@ const POS = ({ currentUser }) => {
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [completedOrder, setCompletedOrder] = useState(null);
+  const [stockManagementEnabled, setStockManagementEnabled] = useState(true);
+  const [brandName, setBrandName] = useState('Cafe POS');
+  const [brandLogo, setBrandLogo] = useState('');
 
   useEffect(() => {
     loadProducts();
     loadCategories();
+    loadStockSetting();
+    loadBrandSettings();
+    
+    // Listen for brand updates from Settings page
+    const handleBrandUpdate = (event) => {
+      const { brandName, brandLogo } = event.detail;
+      setBrandName(brandName);
+      setBrandLogo(brandLogo);
+    };
+
+    window.addEventListener('brandUpdated', handleBrandUpdate);
+    
+    return () => {
+      window.removeEventListener('brandUpdated', handleBrandUpdate);
+    };
   }, []);
+
+  const loadStockSetting = async () => {
+    try {
+      const result = await db.getStockManagementEnabled();
+      if (result.success) {
+        setStockManagementEnabled(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading stock setting:', error);
+    }
+  };
+
+  const loadBrandSettings = async () => {
+    try {
+      const nameResult = await db.getBrandName();
+      if (nameResult.success) {
+        setBrandName(nameResult.data);
+      }
+
+      const logoResult = await db.getBrandLogo();
+      if (logoResult.success) {
+        setBrandLogo(logoResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading brand settings:', error);
+    }
+  };
 
   useEffect(() => {
     filterProducts();
@@ -79,25 +124,27 @@ const POS = ({ currentUser }) => {
     const existingItem = cart.find(item => item.id === product.id);
     
     if (existingItem) {
-      if (existingItem.quantity < product.stock) {
-        setCart(cart.map(item =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
-            : item
-        ));
-      } else {
+      // Check stock only if stock management is enabled
+      if (stockManagementEnabled && existingItem.quantity >= product.stock) {
         alert('Insufficient stock!');
+        return;
       }
+      setCart(cart.map(item =>
+        item.id === product.id
+          ? { ...item, quantity: item.quantity + 1, subtotal: (item.quantity + 1) * item.price }
+          : item
+      ));
     } else {
-      if (product.stock > 0) {
-        setCart([...cart, {
-          ...product,
-          quantity: 1,
-          subtotal: product.price
-        }]);
-      } else {
+      // Check stock only if stock management is enabled
+      if (stockManagementEnabled && product.stock <= 0) {
         alert('Product out of stock!');
+        return;
       }
+      setCart([...cart, {
+        ...product,
+        quantity: 1,
+        subtotal: product.price
+      }]);
     }
   };
 
@@ -109,7 +156,8 @@ const POS = ({ currentUser }) => {
       return;
     }
 
-    if (newQuantity > product.stock) {
+    // Check stock only if stock management is enabled
+    if (stockManagementEnabled && newQuantity > product.stock) {
       alert('Insufficient stock!');
       return;
     }
@@ -233,10 +281,12 @@ const POS = ({ currentUser }) => {
             table { width: 100%; border-collapse: collapse; }
             td { padding: 2px 0; }
             .right { text-align: right; }
+            .logo { width: 60px; height: 60px; margin: 10px auto; object-fit: cover; border-radius: 8px; }
           </style>
         </head>
         <body>
-          <div class="center bold" style="font-size: 16px;">CAFE POS SYSTEM</div>
+          ${brandLogo ? `<img src="${brandLogo}" alt="Logo" class="logo" />` : `<img src="./aurelium.png" alt="Aurelium Logo" class="logo" />`}
+          <div class="center bold" style="font-size: 16px;">${brandName.toUpperCase()}</div>
           <div class="center" style="font-size: 10px;">Token Based Billing Receipt</div>
           <div class="line"></div>
           <div class="center bold" style="font-size: 24px; margin: 10px 0;">
@@ -411,8 +461,16 @@ const POS = ({ currentUser }) => {
                 onClick={() => addToCart(product)}
                 className="card cursor-pointer hover:shadow-lg transition-shadow duration-200 flex flex-col"
               >
-                <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg h-32 flex items-center justify-center mb-3">
-                  <span className="text-4xl">☕</span>
+                <div className="bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg h-32 flex items-center justify-center mb-3 overflow-hidden">
+                  {product.image ? (
+                    <img 
+                      src={product.image} 
+                      alt={product.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl">☕</span>
+                  )}
                 </div>
                 <h3 className="font-semibold text-gray-800 mb-1">{product.name}</h3>
                 <p className="text-sm text-gray-600 mb-2">{product.category_name}</p>
@@ -420,13 +478,15 @@ const POS = ({ currentUser }) => {
                   <span className="text-lg font-bold text-blue-600">
                     PKR {Math.round(product.price)}
                   </span>
-                  <span className={`text-xs px-2 py-1 rounded ${
-                    product.stock > 10
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    Stock: {product.stock}
-                  </span>
+                  {stockManagementEnabled && (
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      product.stock > 10
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-orange-100 text-orange-700'
+                    }`}>
+                      Stock: {product.stock}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

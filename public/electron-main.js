@@ -42,7 +42,7 @@ function createWindow() {
   // Load development server or production build
   const startURL = isDevelopment 
     ? 'http://localhost:3000' 
-    : `file://${path.join(__dirname, 'build/index.html')}`;
+    : `file://${path.join(__dirname, '../index.html')}`;
 
   console.log('Loading URL:', startURL);
   console.log('isDevelopment:', isDevelopment);

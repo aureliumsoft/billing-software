@@ -1,41 +1,36 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiCoffee, FiArrowLeft } from 'react-icons/fi';
+import { FiUser, FiLock, FiCoffee, FiArrowLeft, FiShield, FiKey } from 'react-icons/fi';
 import db from '../../utils/db';
 
 const ForgotPassword = () => {
-  const [step, setStep] = useState(1); // 1: email, 2: code, 3: new password
-  const [email, setEmail] = useState('');
-  const [resetCode, setResetCode] = useState('');
+  const [step, setStep] = useState(1); // 1: username, 2: security answer, 3: new password
+  const [resetMethod, setResetMethod] = useState(''); // 'security' or 'master'
+  const [username, setUsername] = useState('');
+  const [securityAnswer, setSecurityAnswer] = useState('');
+  const [masterCode, setMasterCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [userId, setUserId] = useState(null);
+  const [userData, setUserData] = useState(null);
   const navigate = useNavigate();
 
-  const handleEmailSubmit = async (e) => {
+  const handleUsernameSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
 
     try {
-      const result = await db.getUserByEmail(email);
+      const result = await db.getUserByUsername(username);
       
       if (result.success && result.data) {
-        // Generate 6-digit code
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        
-        await db.createPasswordReset(result.data.id, code);
-        setUserId(result.data.id);
-        
-        // In a real app, send email here
-        setSuccess(`Reset code: ${code} (In production, this would be sent via email)`);
+        setUserData(result.data);
         setStep(2);
       } else {
-        setError('Email address not found');
+        setError('Username not found. Please contact your administrator.');
       }
     } catch (err) {
       setError('Failed to process request. Please try again.');
@@ -45,19 +40,42 @@ const ForgotPassword = () => {
     }
   };
 
-  const handleCodeSubmit = async (e) => {
+  const handleSecuritySubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const result = await db.getPasswordReset(resetCode);
+      // Check security answer (stored in lowercase for comparison)
+      const storedAnswer = userData.security_answer?.toLowerCase().trim();
+      const providedAnswer = securityAnswer.toLowerCase().trim();
       
-      if (result.success && result.data) {
-        setUserId(result.data.user_id);
+      if (storedAnswer && storedAnswer === providedAnswer) {
         setStep(3);
       } else {
-        setError('Invalid or expired reset code');
+        setError('Incorrect answer. Please contact your administrator.');
+      }
+    } catch (err) {
+      setError('Failed to verify answer. Please try again.');
+      console.error('Verify error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMasterCodeSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    try {
+      // Master reset code - you can change this in production
+      const MASTER_RESET_CODE = 'CAFE2025RESET';
+      
+      if (masterCode === MASTER_RESET_CODE) {
+        setStep(3);
+      } else {
+        setError('Invalid master code. Please contact system administrator.');
       }
     } catch (err) {
       setError('Failed to verify code. Please try again.');
@@ -84,11 +102,7 @@ const ForgotPassword = () => {
     setLoading(true);
 
     try {
-      await db.updatePassword(userId, newPassword);
-      const result = await db.getPasswordReset(resetCode);
-      if (result.success && result.data) {
-        await db.markResetUsed(result.data.id);
-      }
+      await db.updatePassword(userData.id, newPassword);
       
       setSuccess('Password reset successful! Redirecting to login...');
       setTimeout(() => navigate('/login'), 2000);
@@ -109,8 +123,10 @@ const ForgotPassword = () => {
           </div>
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Reset Password</h1>
           <p className="text-gray-600">
-            {step === 1 && 'Enter your email to receive a reset code'}
-            {step === 2 && 'Enter the reset code sent to your email'}
+            {step === 1 && 'Enter your username to begin password reset'}
+            {step === 2 && !resetMethod && 'Choose a recovery method'}
+            {step === 2 && resetMethod === 'security' && 'Answer your security question'}
+            {step === 2 && resetMethod === 'master' && 'Enter master reset code'}
             {step === 3 && 'Create a new password'}
           </p>
         </div>
@@ -128,51 +144,29 @@ const ForgotPassword = () => {
         )}
 
         {step === 1 && (
-          <form onSubmit={handleEmailSubmit} className="space-y-6">
+          <form onSubmit={handleUsernameSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
+                Username
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiMail className="text-gray-400" />
+                  <FiUser className="text-gray-400" />
                 </div>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="input-field pl-10"
-                  placeholder="Enter your email"
+                  placeholder="Enter your username"
                   required
                 />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary py-3 text-lg font-semibold"
-            >
-              {loading ? 'Processing...' : 'Send Reset Code'}
-            </button>
-          </form>
-        )}
-
-        {step === 2 && (
-          <form onSubmit={handleCodeSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Reset Code
-              </label>
-              <input
-                type="text"
-                value={resetCode}
-                onChange={(e) => setResetCode(e.target.value)}
-                className="input-field text-center text-2xl tracking-widest"
-                placeholder="000000"
-                maxLength="6"
-                required
-              />
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+              <p className="font-semibold mb-1">📌 Offline Password Reset</p>
+              <p className="text-xs">You'll need to answer your security question or use the master reset code.</p>
             </div>
 
             <button
@@ -180,8 +174,140 @@ const ForgotPassword = () => {
               disabled={loading}
               className="w-full btn-primary py-3 text-lg font-semibold"
             >
-              {loading ? 'Verifying...' : 'Verify Code'}
+              {loading ? 'Processing...' : 'Continue'}
             </button>
+          </form>
+        )}
+
+        {step === 2 && !resetMethod && (
+          <div className="space-y-4">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800 mb-4">
+              <p className="font-semibold mb-1">⚠️ Account: {userData?.username}</p>
+              <p className="text-xs">Choose a method to verify your identity</p>
+            </div>
+
+            {userData?.security_answer && (
+              <button
+                onClick={() => setResetMethod('security')}
+                className="w-full p-4 border-2 border-blue-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+              >
+                <div className="flex items-start">
+                  <div className="bg-blue-100 rounded-full p-3 mr-4">
+                    <FiShield className="text-blue-600 text-xl" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-800 mb-1">Security Question</h3>
+                    <p className="text-sm text-gray-600">{userData.security_question || 'What is your favorite cafe drink?'}</p>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            <button
+              onClick={() => setResetMethod('master')}
+              className="w-full p-4 border-2 border-purple-200 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all text-left"
+            >
+              <div className="flex items-start">
+                <div className="bg-purple-100 rounded-full p-3 mr-4">
+                  <FiKey className="text-purple-600 text-xl" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-800 mb-1">Master Reset Code</h3>
+                  <p className="text-sm text-gray-600">Use the system administrator code</p>
+                </div>
+              </div>
+            </button>
+
+            {!userData?.security_answer && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-800 mt-4">
+                <p className="font-semibold mb-1">⚠️ No Security Question Set</p>
+                <p className="text-xs">You must use the master reset code. Contact your administrator if you don't have it.</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {step === 2 && resetMethod === 'security' && (
+          <form onSubmit={handleSecuritySubmit} className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800 mb-4">
+              <p className="font-semibold mb-2">Security Question:</p>
+              <p className="text-base text-blue-900">{userData?.security_question || 'What is your favorite cafe drink?'}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Answer
+              </label>
+              <input
+                type="text"
+                value={securityAnswer}
+                onChange={(e) => setSecurityAnswer(e.target.value)}
+                className="input-field"
+                placeholder="Enter your answer"
+                autoFocus
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Answer is not case-sensitive</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setResetMethod('')}
+                className="flex-1 btn-secondary py-3"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 btn-primary py-3"
+              >
+                {loading ? 'Verifying...' : 'Verify'}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {step === 2 && resetMethod === 'master' && (
+          <form onSubmit={handleMasterCodeSubmit} className="space-y-6">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800 mb-4">
+              <p className="font-semibold mb-1">🔐 Master Reset Code</p>
+              <p className="text-xs">Enter the system administrator code to reset this password.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Master Code
+              </label>
+              <input
+                type="password"
+                value={masterCode}
+                onChange={(e) => setMasterCode(e.target.value)}
+                className="input-field text-center text-lg tracking-wider"
+                placeholder="Enter master code"
+                autoFocus
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">Default code: CAFE2025RESET</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setResetMethod('')}
+                className="flex-1 btn-secondary py-3"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 btn-primary py-3"
+              >
+                {loading ? 'Verifying...' : 'Verify'}
+              </button>
+            </div>
           </form>
         )}
 

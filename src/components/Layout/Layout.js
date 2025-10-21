@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import db from '../../utils/db';
 import {
   FiHome,
   FiShoppingCart,
@@ -8,18 +9,58 @@ import {
   FiFileText,
   FiDollarSign,
   FiBarChart2,
+  FiSettings,
   FiLogOut,
   FiMenu,
   FiX,
   FiCoffee,
-  FiUser
+  FiUser,
+  FiHelpCircle
 } from 'react-icons/fi';
 
 const Layout = ({ currentUser, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [brandName, setBrandName] = useState('Cafe POS');
+  const [brandLogo, setBrandLogo] = useState('');
   const location = useLocation();
 
-  const menuItems = [
+  useEffect(() => {
+    loadBrandSettings();
+    
+    // Listen for brand updates from Settings page
+    const handleBrandUpdate = (event) => {
+      const { brandName, brandLogo } = event.detail;
+      setBrandName(brandName);
+      setBrandLogo(brandLogo);
+      document.title = `${brandName} - POS System`;
+    };
+
+    window.addEventListener('brandUpdated', handleBrandUpdate);
+    
+    return () => {
+      window.removeEventListener('brandUpdated', handleBrandUpdate);
+    };
+  }, []);
+
+  const loadBrandSettings = async () => {
+    try {
+      const nameResult = await db.getBrandName();
+      if (nameResult.success) {
+        setBrandName(nameResult.data);
+        // Update document title
+        document.title = `${nameResult.data} - POS System`;
+      }
+
+      const logoResult = await db.getBrandLogo();
+      if (logoResult.success) {
+        setBrandLogo(logoResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading brand settings:', error);
+    }
+  };
+
+  const mainMenuItems = [
     { path: '/', icon: FiHome, label: 'Dashboard' },
     { path: '/pos', icon: FiShoppingCart, label: 'POS' },
     { path: '/products', icon: FiPackage, label: 'Products' },
@@ -27,6 +68,11 @@ const Layout = ({ currentUser, onLogout }) => {
     { path: '/orders', icon: FiFileText, label: 'Orders' },
     { path: '/expenses', icon: FiDollarSign, label: 'Expenses' },
     { path: '/reports', icon: FiBarChart2, label: 'Reports' },
+  ];
+
+  const bottomMenuItems = [
+    { path: '/settings', icon: FiSettings, label: 'Settings' },
+    { path: '/help', icon: FiHelpCircle, label: 'Help' },
   ];
 
   const isActive = (path) => {
@@ -53,11 +99,23 @@ const Layout = ({ currentUser, onLogout }) => {
         <div className="p-4 border-b border-white/20">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="bg-white/20 p-2 rounded-lg">
-                <FiCoffee className="text-2xl" />
+              <div className="bg-white/20 p-2 rounded-lg overflow-hidden">
+                {brandLogo ? (
+                  <img 
+                    src={brandLogo} 
+                    alt={brandName}
+                    className="h-8 w-8 object-cover"
+                  />
+                ) : (
+                  <img 
+                    src="./aurelium.png" 
+                    alt="Aurelium Logo" 
+                    className="h-8 w-8 object-contain"
+                  />
+                )}
               </div>
               <div>
-                <h1 className="font-bold text-lg">Cafe POS</h1>
+                <h1 className="font-bold text-lg">{brandName}</h1>
                 <p className="text-xs text-white/70">Management System</p>
               </div>
             </div>
@@ -85,9 +143,9 @@ const Layout = ({ currentUser, onLogout }) => {
           </div>
         )}
 
-        {/* Navigation */}
+        {/* Main Navigation */}
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          {menuItems.map((item) => {
+          {mainMenuItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             
@@ -109,15 +167,42 @@ const Layout = ({ currentUser, onLogout }) => {
           })}
         </nav>
 
-        {/* Logout */}
-        <div className="p-4 border-t border-white/20">
-          <button
-            onClick={onLogout}
-            className="flex items-center space-x-3 p-3 rounded-lg text-white hover:bg-white/10 w-full transition-all duration-200"
-          >
-            <FiLogOut className="text-xl flex-shrink-0" />
-            <span className="font-medium">Logout</span>
-          </button>
+        {/* Bottom Section - Settings, Help, and Logout */}
+        <div className="border-t border-white/20">
+          {/* Settings and Help */}
+          <div className="p-4 space-y-2">
+            {bottomMenuItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => window.innerWidth < 1024 && setSidebarOpen(false)}
+                  className={`flex items-center space-x-3 p-3 rounded-lg transition-all duration-200 ${
+                    active
+                      ? 'bg-white text-blue-600 shadow-lg'
+                      : 'text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icon className="text-xl flex-shrink-0" />
+                  <span className="font-medium">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Logout */}
+          <div className="p-4 border-t border-white/20">
+            <button
+              onClick={onLogout}
+              className="flex items-center space-x-3 p-3 rounded-lg text-white hover:bg-white/10 w-full transition-all duration-200"
+            >
+              <FiLogOut className="text-xl flex-shrink-0" />
+              <span className="font-medium">Logout</span>
+            </button>
+          </div>
         </div>
       </div>
 

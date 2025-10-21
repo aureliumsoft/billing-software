@@ -9,6 +9,8 @@ import Categories from './components/Categories/Categories';
 import Orders from './components/Orders/Orders';
 import Expenses from './components/Expenses/Expenses';
 import Reports from './components/Reports/Reports';
+import Settings from './components/Settings/Settings';
+import Help from './components/Help/Help';
 import Layout from './components/Layout/Layout';
 
 function App() {
@@ -72,6 +74,8 @@ function App() {
             <Route path="orders" element={<Orders />} />
             <Route path="expenses" element={<Expenses currentUser={currentUser} />} />
             <Route path="reports" element={<Reports />} />
+            <Route path="settings" element={<Settings currentUser={currentUser} />} />
+            <Route path="help" element={<Help />} />
           </Route>
         ) : (
           <Route path="*" element={<Navigate to="/login" replace />} />

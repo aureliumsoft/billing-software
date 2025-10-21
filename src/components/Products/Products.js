@@ -17,6 +17,7 @@ const Products = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [stockManagementEnabled, setStockManagementEnabled] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -24,13 +25,27 @@ const Products = () => {
     price: '',
     cost: '',
     stock: '',
-    description: ''
+    description: '',
+    image: ''
   });
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     loadProducts();
     loadCategories();
+    loadStockSetting();
   }, []);
+
+  const loadStockSetting = async () => {
+    try {
+      const result = await db.getStockManagementEnabled();
+      if (result.success) {
+        setStockManagementEnabled(result.data);
+      }
+    } catch (error) {
+      console.error('Error loading stock setting:', error);
+    }
+  };
 
   const loadProducts = async () => {
     try {
@@ -59,6 +74,9 @@ const Products = () => {
     setLoading(true);
 
     try {
+      // Use stock value or default to 9999 if stock management is disabled
+      const stockValue = stockManagementEnabled ? parseInt(formData.stock || 0) : 9999;
+      
       if (editingProduct) {
         await db.updateProduct(
           editingProduct.id,
@@ -66,8 +84,9 @@ const Products = () => {
           parseInt(formData.category_id),
           parseFloat(formData.price),
           parseFloat(formData.cost),
-          parseInt(formData.stock),
-          formData.description
+          stockValue,
+          formData.description,
+          formData.image
         );
       } else {
         await db.createProduct(
@@ -75,8 +94,9 @@ const Products = () => {
           parseInt(formData.category_id),
           parseFloat(formData.price),
           parseFloat(formData.cost),
-          parseInt(formData.stock),
-          formData.description
+          stockValue,
+          formData.description,
+          formData.image
         );
       }
 
@@ -98,8 +118,10 @@ const Products = () => {
       price: product.price.toString(),
       cost: product.cost.toString(),
       stock: product.stock.toString(),
-      description: product.description || ''
+      description: product.description || '',
+      image: product.image || ''
     });
+    setImagePreview(product.image || null);
     setShowModal(true);
   };
 
@@ -120,27 +142,61 @@ const Products = () => {
   const closeModal = () => {
     setShowModal(false);
     setEditingProduct(null);
+    setImagePreview(null);
     setFormData({
       name: '',
       category_id: '',
       price: '',
       cost: '',
       stock: '',
-      description: ''
+      description: '',
+      image: ''
     });
   };
 
   const openAddModal = () => {
     setEditingProduct(null);
+    setImagePreview(null);
     setFormData({
       name: '',
       category_id: categories.length > 0 ? categories[0].id.toString() : '',
       price: '',
       cost: '',
       stock: '',
-      description: ''
+      description: '',
+      image: ''
     });
     setShowModal(true);
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Check file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image size should be less than 2MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        setFormData({ ...formData, image: base64String });
+        setImagePreview(base64String);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, image: '' });
+    setImagePreview(null);
   };
 
   const filteredProducts = products.filter(product =>
@@ -154,7 +210,11 @@ const Products = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Products</h1>
-          <p className="text-gray-600 mt-1">Manage your product inventory</p>
+          <p className="text-gray-600 mt-1">
+            {stockManagementEnabled 
+              ? 'Manage your product inventory' 
+              : 'Manage your products (Stock tracking disabled)'}
+          </p>
         </div>
         <button
           onClick={openAddModal}
@@ -197,9 +257,11 @@ const Products = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Cost
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Stock
-                </th>
+                {stockManagementEnabled && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stock
+                  </th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Profit
                 </th>
@@ -211,7 +273,7 @@ const Products = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={stockManagementEnabled ? "7" : "6"} className="px-6 py-12 text-center text-gray-500">
                     <FiPackage className="text-5xl mx-auto mb-3 opacity-30" />
                     <p>No products found</p>
                   </td>
@@ -225,8 +287,18 @@ const Products = () => {
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
-                            <span className="text-xl">☕</span>
+                          <div className="flex-shrink-0 h-10 w-10 rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100">
+                            {product.image ? (
+                              <img 
+                                src={product.image} 
+                                alt={product.name}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center">
+                                <span className="text-xl">☕</span>
+                              </div>
+                            )}
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
@@ -249,20 +321,22 @@ const Products = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         PKR {Math.round(product.cost)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          product.stock === 0
-                            ? 'bg-red-100 text-red-800'
-                            : product.stock < 10
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-green-100 text-green-800'
-                        }`}>
-                          {product.stock} units
-                        </span>
-                        {product.stock < 10 && (
-                          <FiAlertCircle className="inline ml-2 text-orange-500" />
-                        )}
-                      </td>
+                      {stockManagementEnabled && (
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                            product.stock === 0
+                              ? 'bg-red-100 text-red-800'
+                              : product.stock < 10
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-green-100 text-green-800'
+                          }`}>
+                            {product.stock} units
+                          </span>
+                          {product.stock < 10 && (
+                            <FiAlertCircle className="inline ml-2 text-orange-500" />
+                          )}
+                        </td>
+                      )}
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="text-green-600 font-medium">
                           PKR {Math.round(profit)}
@@ -313,6 +387,60 @@ const Products = () => {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
+                  {/* Product Image Upload */}
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Product Image
+                    </label>
+                    <div className="flex items-start space-x-4">
+                      {/* Image Preview */}
+                      <div className="flex-shrink-0">
+                        <div className="h-24 w-24 rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 border-2 border-gray-200">
+                          {imagePreview ? (
+                            <img 
+                              src={imagePreview} 
+                              alt="Preview"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-4xl text-gray-400">
+                              ☕
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Upload Controls */}
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="hidden"
+                          id="image-upload"
+                        />
+                        <label
+                          htmlFor="image-upload"
+                          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer transition-colors mb-2"
+                        >
+                          Choose Image
+                        </label>
+                        {imagePreview && (
+                          <button
+                            type="button"
+                            onClick={removeImage}
+                            className="ml-2 px-4 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          Max size: 2MB. Formats: JPG, PNG, GIF, WebP
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Product Name *
@@ -345,19 +473,21 @@ const Products = () => {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Stock Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.stock}
-                      onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
-                      className="input-field"
-                      min="0"
-                      required
-                    />
-                  </div>
+                  {stockManagementEnabled && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Stock Quantity *
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.stock}
+                        onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                        className="input-field"
+                        min="0"
+                        required
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -4,7 +4,9 @@ import {
   FiDollarSign,
   FiTrendingUp,
   FiTrendingDown,
-  FiCalendar
+  FiCalendar,
+  FiDownload,
+  FiPrinter
 } from 'react-icons/fi';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import db from '../../utils/db';
@@ -22,6 +24,7 @@ const Reports = () => {
   const [salesReport, setSalesReport] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [stockManagementEnabled, setStockManagementEnabled] = useState(true);
 
   useEffect(() => {
     setDefaultDateRange();
@@ -61,6 +64,12 @@ const Reports = () => {
   const loadReports = async () => {
     setLoading(true);
     try {
+      // Load stock management setting
+      const stockResult = await db.getStockManagementEnabled();
+      if (stockResult.success) {
+        setStockManagementEnabled(stockResult.data);
+      }
+
       // Profit/Loss
       const plResult = await db.getProfitLoss(startDate, endDate);
       if (plResult.success) {
@@ -85,17 +94,62 @@ const Reports = () => {
     }
   };
 
+  const exportToCSV = () => {
+    let csvContent = "data:text/csv;charset=utf-8,";
+    
+    // Add Profit/Loss Summary
+    csvContent += "PROFIT & LOSS STATEMENT\\n";
+    csvContent += `Period: ${startDate} to ${endDate}\\n\\n`;
+    csvContent += "Category,Amount (PKR)\\n";
+    csvContent += `Total Revenue,${profitLoss.revenue}\\n`;
+    csvContent += `Cost of Goods Sold,-${profitLoss.cost}\\n`;
+    csvContent += `Gross Profit,${profitLoss.revenue - profitLoss.cost}\\n`;
+    csvContent += `Operating Expenses,-${profitLoss.expenses}\\n`;
+    csvContent += `Net Profit/Loss,${profitLoss.profit}\\n\\n`;
+    
+    // Add Top Products
+    csvContent += "TOP SELLING PRODUCTS\\n";
+    csvContent += "Product Name,Units Sold,Revenue (PKR)\\n";
+    topProducts.forEach(product => {
+      csvContent += `${product.name},${product.total_sold},${product.total_revenue}\\n`;
+    });
+    
+    // Add Daily Sales
+    csvContent += "\\nDAILY SALES REPORT\\n";
+    csvContent += "Date,Orders,Sales (PKR)\\n";
+    salesReport.forEach(day => {
+      csvContent += `${day.date},${day.order_count},${day.total_sales}\\n`;
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `report_${startDate}_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const printReport = () => {
+    window.print();
+  };
+
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
   const profitMargin = profitLoss.revenue > 0 
     ? ((profitLoss.profit / profitLoss.revenue) * 100).toFixed(1)
     : 0;
 
-  const expenseData = [
-    { name: 'Revenue', value: profitLoss.revenue, color: '#10B981' },
-    { name: 'Cost', value: profitLoss.cost, color: '#F59E0B' },
-    { name: 'Expenses', value: profitLoss.expenses, color: '#EF4444' }
-  ];
+  const expenseData = stockManagementEnabled 
+    ? [
+        { name: 'Revenue', value: profitLoss.revenue, color: '#10B981' },
+        { name: 'Cost', value: profitLoss.cost, color: '#F59E0B' },
+        { name: 'Expenses', value: profitLoss.expenses, color: '#EF4444' }
+      ]
+    : [
+        { name: 'Revenue', value: profitLoss.revenue, color: '#10B981' },
+        { name: 'Expenses', value: profitLoss.expenses, color: '#EF4444' }
+      ];
 
   if (loading) {
     return (
@@ -111,9 +165,29 @@ const Reports = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800">Reports & Analytics</h1>
-        <p className="text-gray-600 mt-1">Track your business performance</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800">Reports & Analytics</h1>
+          <p className="text-gray-600 mt-1">Track your business performance</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToCSV}
+            className="btn-secondary flex items-center space-x-2"
+            title="Export to CSV"
+          >
+            <FiDownload />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+          <button
+            onClick={printReport}
+            className="btn-primary flex items-center space-x-2"
+            title="Print Report"
+          >
+            <FiPrinter />
+            <span className="hidden sm:inline">Print</span>
+          </button>
+        </div>
       </div>
 
       {/* Date Range Selector */}
@@ -201,7 +275,7 @@ const Reports = () => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 ${stockManagementEnabled ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         <div className="stat-card bg-gradient-to-br from-green-50 to-green-100">
           <div className="flex items-center justify-between mb-2">
             <p className="text-sm text-gray-600">Total Revenue</p>
@@ -215,18 +289,20 @@ const Reports = () => {
           </p>
         </div>
 
-        <div className="stat-card bg-gradient-to-br from-orange-50 to-orange-100">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-600">Total Cost</p>
-            <FiTrendingDown className="text-orange-600 text-xl" />
+        {stockManagementEnabled && (
+          <div className="stat-card bg-gradient-to-br from-orange-50 to-orange-100">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm text-gray-600">Total Cost</p>
+              <FiTrendingDown className="text-orange-600 text-xl" />
+            </div>
+            <p className="text-3xl font-bold text-orange-600">
+              PKR {Math.round(profitLoss.cost)}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              Product costs
+            </p>
           </div>
-          <p className="text-3xl font-bold text-orange-600">
-            PKR {Math.round(profitLoss.cost)}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Product costs
-          </p>
-        </div>
+        )}
 
         <div className="stat-card bg-gradient-to-br from-red-50 to-red-100">
           <div className="flex items-center justify-between mb-2">
@@ -280,12 +356,33 @@ const Reports = () => {
                 <XAxis 
                   dataKey="date" 
                   tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                  tickFormatter={(value) => {
+                    try {
+                      return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    } catch {
+                      return value;
+                    }
+                  }}
                 />
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip 
-                  formatter={(value) => `PKR ${Math.round(value)}`}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString()}
+                  formatter={(value) => [`PKR ${Math.round(value)}`, 'Sales']}
+                  labelFormatter={(label) => {
+                    try {
+                      return new Date(label).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      });
+                    } catch {
+                      return label;
+                    }
+                  }}
+                  contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #ccc' }}
                 />
                 <Legend />
                 <Line 
@@ -322,9 +419,10 @@ const Reports = () => {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, value, percent }) => 
-                    `${name}: PKR ${Math.round(value)} (${(percent * 100).toFixed(0)}%)`
-                  }
+                  label={({ name, value, percent }) => {
+                    if (value === 0) return '';
+                    return `${name}: ${(percent * 100).toFixed(0)}%`;
+                  }}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -333,7 +431,10 @@ const Reports = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value) => `PKR ${Math.round(value)}`} />
+                <Tooltip 
+                  formatter={(value) => `PKR ${Math.round(value)}`}
+                  contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #ccc' }}
+                />
               </PieChart>
             </ResponsiveContainer>
           ) : (
@@ -356,10 +457,18 @@ const Reports = () => {
               <BarChart data={topProducts} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" tick={{ fontSize: 12 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 12 }} width={150} />
-                <Tooltip />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  tick={{ fontSize: 12 }} 
+                  width={150}
+                />
+                <Tooltip 
+                  formatter={(value, name) => [value, name === 'total_sold' ? 'Units' : 'Revenue']}
+                  contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', border: '1px solid #ccc' }}
+                />
                 <Legend />
-                <Bar dataKey="total_sold" name="Units Sold" fill="#3B82F6" />
+                <Bar dataKey="total_sold" name="Units Sold" fill="#3B82F6" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
 
@@ -404,6 +513,87 @@ const Reports = () => {
         )}
       </div>
 
+      {/* Daily Sales Table */}
+      {salesReport.length > 0 && (
+        <div className="card">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <FiCalendar className="mr-2" />
+            Daily Sales Breakdown
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Day
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Orders
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Total Sales
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Avg Order
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {salesReport.map((day, index) => {
+                  const avgOrder = day.order_count > 0 ? day.total_sales / day.order_count : 0;
+                  const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' });
+                  const formattedDate = new Date(day.date).toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    year: 'numeric'
+                  });
+                  
+                  return (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formattedDate}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {dayName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                        {day.order_count}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-green-600">
+                        PKR {Math.round(day.total_sales)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-blue-600">
+                        PKR {Math.round(avgOrder)}
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr className="bg-gray-50 font-bold">
+                  <td colSpan="2" className="px-6 py-4 text-sm text-gray-900">
+                    Total
+                  </td>
+                  <td className="px-6 py-4 text-sm text-right text-gray-900">
+                    {salesReport.reduce((sum, day) => sum + day.order_count, 0)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-right text-green-600">
+                    PKR {Math.round(salesReport.reduce((sum, day) => sum + day.total_sales, 0))}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-right text-blue-600">
+                    PKR {Math.round(
+                      salesReport.reduce((sum, day) => sum + day.total_sales, 0) / 
+                      salesReport.reduce((sum, day) => sum + day.order_count, 0)
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Profit/Loss Summary */}
       <div className="card">
         <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
@@ -417,18 +607,22 @@ const Reports = () => {
               PKR {Math.round(profitLoss.revenue)}
             </span>
           </div>
-          <div className="flex justify-between items-center pb-3 border-b">
-            <span className="text-gray-700">Less: Cost of Goods Sold</span>
-            <span className="font-bold text-orange-600 text-lg">
-              -PKR {Math.round(profitLoss.cost)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center pb-3 border-b">
-            <span className="text-gray-700 font-medium">Gross Profit</span>
-            <span className="font-bold text-blue-600 text-lg">
-              PKR {Math.round(profitLoss.revenue - profitLoss.cost)}
-            </span>
-          </div>
+          {stockManagementEnabled && (
+            <div className="flex justify-between items-center pb-3 border-b">
+              <span className="text-gray-700">Less: Cost of Goods Sold</span>
+              <span className="font-bold text-orange-600 text-lg">
+                -PKR {Math.round(profitLoss.cost)}
+              </span>
+            </div>
+          )}
+          {stockManagementEnabled && (
+            <div className="flex justify-between items-center pb-3 border-b">
+              <span className="text-gray-700 font-medium">Gross Profit</span>
+              <span className="font-bold text-blue-600 text-lg">
+                PKR {Math.round(profitLoss.revenue - profitLoss.cost)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between items-center pb-3 border-b">
             <span className="text-gray-700">Less: Operating Expenses</span>
             <span className="font-bold text-red-600 text-lg">
@@ -443,6 +637,26 @@ const Reports = () => {
               {profitLoss.profit >= 0 ? '+' : ''}PKR {Math.round(profitLoss.profit)}
             </span>
           </div>
+          {stockManagementEnabled && (
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600">Gross Margin</p>
+                  <p className="font-bold text-gray-800">
+                    {profitLoss.revenue > 0 
+                      ? ((profitLoss.revenue - profitLoss.cost) / profitLoss.revenue * 100).toFixed(1)
+                      : 0}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-gray-600">Net Margin</p>
+                  <p className="font-bold text-gray-800">
+                    {profitMargin}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

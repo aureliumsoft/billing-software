@@ -80,6 +80,39 @@ body {
     margin: 0 auto;
     font-size: 12px;
   }
+
+  /* Hide navigation and buttons when printing reports */
+  nav,
+  header,
+  button,
+  .btn-primary,
+  .btn-secondary {
+    display: none !important;
+  }
+
+  /* Optimize charts for print */
+  .recharts-wrapper {
+    max-height: 400px !important;
+  }
+
+  /* Ensure cards print well */
+  .card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #e5e7eb;
+  }
+
+  /* Optimize tables for print */
+  table {
+    font-size: 10px;
+  }
+
+  /* Ensure proper page breaks */
+  h1, h2, h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
 }
 
 /* Animation classes */

@@ -74,12 +74,12 @@ class DatabaseAPI {
     return await this.executeQuery('searchProducts', query);
   }
 
-  async createProduct(name, categoryId, price, cost, stock, description) {
-    return await this.executeQuery('createProduct', name, categoryId, price, cost, stock, description);
+  async createProduct(name, categoryId, price, cost, stock, description, image) {
+    return await this.executeQuery('createProduct', name, categoryId, price, cost, stock, description, image);
   }
 
-  async updateProduct(id, name, categoryId, price, cost, stock, description) {
-    return await this.executeQuery('updateProduct', id, name, categoryId, price, cost, stock, description);
+  async updateProduct(id, name, categoryId, price, cost, stock, description, image) {
+    return await this.executeQuery('updateProduct', id, name, categoryId, price, cost, stock, description, image);
   }
 
   async deleteProduct(id) {
@@ -169,6 +169,30 @@ class DatabaseAPI {
 
   async getCurrentTokenNumber() {
     return await this.executeQuery('getCurrentTokenNumber');
+  }
+
+  async getStockManagementEnabled() {
+    return await this.executeQuery('getStockManagementEnabled');
+  }
+
+  async setStockManagementEnabled(enabled) {
+    return await this.executeQuery('setStockManagementEnabled', enabled);
+  }
+
+  async getBrandName() {
+    return await this.executeQuery('getBrandName');
+  }
+
+  async setBrandName(name) {
+    return await this.executeQuery('setBrandName', name);
+  }
+
+  async getBrandLogo() {
+    return await this.executeQuery('getBrandLogo');
+  }
+
+  async setBrandLogo(logo) {
+    return await this.executeQuery('setBrandLogo', logo);
   }
 }
 

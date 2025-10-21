@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FiUser, FiLock, FiCoffee } from 'react-icons/fi';
 import db from '../../utils/db';
@@ -8,7 +8,30 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [brandName, setBrandName] = useState('Cafe POS');
+  const [brandLogo, setBrandLogo] = useState('');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    loadBrandSettings();
+  }, []);
+
+  const loadBrandSettings = async () => {
+    try {
+      const nameResult = await db.getBrandName();
+      if (nameResult.success) {
+        setBrandName(nameResult.data);
+        document.title = `${nameResult.data} - POS System`;
+      }
+
+      const logoResult = await db.getBrandLogo();
+      if (logoResult.success) {
+        setBrandLogo(logoResult.data);
+      }
+    } catch (error) {
+      console.error('Error loading brand settings:', error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,9 +60,21 @@ const Login = ({ onLogin }) => {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 animate-fade-in">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mb-4">
-            <FiCoffee className="text-white text-4xl" />
+            {brandLogo ? (
+              <img 
+                src={brandLogo} 
+                alt={`${brandName} Logo`} 
+                className="w-12 h-12 object-contain"
+              />
+            ) : (
+              <img 
+                src="./aurelium.png" 
+                alt="Aurelium Logo" 
+                className="w-12 h-12 object-contain"
+              />
+            )}
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Cafe POS System</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{brandName} System</h1>
           <p className="text-gray-600">Sign in to your account</p>
         </div>
 
@@ -118,6 +153,7 @@ const Login = ({ onLogin }) => {
 
         <div className="mt-6 text-center text-sm text-gray-600">
           <p>Default credentials: admin / admin123</p>
+          <p className="mt-2 font-medium text-gray-800">Published by: <span className="text-blue-600">Aurelium Soft</span></p>
         </div>
       </div>
     </div>

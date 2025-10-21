@@ -2,17 +2,18 @@
   "name": "cafe-pos-system",
   "version": "1.0.0",
   "description": "Modern Cafe POS System with Token-based Billing",
-  "main": "electron.js",
+  "main": "public/electron-main.js",
   "homepage": ".",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "electron": "electron electron.js",
-    "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron electron.js\"",
-    "package": "electron-builder"
+    "electron": "npx electron electron.js",
+    "electron-dev": "node start-dev.js",
+    "package": "npm run build && electron-builder --win --x64",
+    "package-fast": "electron-builder --win --x64 --dir"
   },
   "keywords": ["electron", "pos", "cafe", "billing"],
-  "author": "Your Name",
+  "author": "Aurelium Soft",
   "license": "MIT",
   "dependencies": {
     "react": "^18.2.0",
@@ -49,16 +50,37 @@
     ]
   },
   "build": {
-    "appId": "com.cafe.pos",
+    "appId": "com.aureliumsoft.cafepos",
     "productName": "Cafe POS System",
+    "copyright": "Copyright © 2024 Aurelium Soft",
+    "extends": null,
     "files": [
       "build/**/*",
-      "electron.js",
-      "preload.js",
-      "database.js"
+      "public/electron-main.js",
+      "public/database.js",
+      "public/preload.js"
     ],
     "directories": {
-      "buildResources": "assets"
+      "output": "dist"
+    },
+    "compression": "maximum",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false
     }
   }
 }

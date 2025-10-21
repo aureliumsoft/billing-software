@@ -7,7 +7,7 @@ import {
   FiPackage,
   FiTrendingUp,
   FiArrowRight,
-  FiRefreshCw
+  FiSettings
 } from 'react-icons/fi';
 import db from '../../utils/db';
 
@@ -15,17 +15,31 @@ const Dashboard = ({ currentUser }) => {
   const [stats, setStats] = useState({
     todaySales: 0,
     todayOrders: 0,
+    weekSales: 0,
+    avgOrderValue: 0,
     lowStock: 0,
-    totalProducts: 0
+    totalProducts: 0,
+    stockManagementEnabled: true
   });
   const [recentOrders, setRecentOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tokenNumber, setTokenNumber] = useState(0);
-  const [resetting, setResetting] = useState(false);
+  const [brandName, setBrandName] = useState('Cafe POS');
 
   useEffect(() => {
     loadDashboardData();
-    loadTokenNumber();
+    loadBrandSettings();
+    
+    // Listen for brand updates from Settings page
+    const handleBrandUpdate = (event) => {
+      const { brandName } = event.detail;
+      setBrandName(brandName);
+    };
+
+    window.addEventListener('brandUpdated', handleBrandUpdate);
+    
+    return () => {
+      window.removeEventListener('brandUpdated', handleBrandUpdate);
+    };
   }, []);
 
   const loadDashboardData = async () => {
@@ -46,36 +60,14 @@ const Dashboard = ({ currentUser }) => {
     }
   };
 
-  const loadTokenNumber = async () => {
+  const loadBrandSettings = async () => {
     try {
-      const result = await db.getCurrentTokenNumber();
-      if (result.success) {
-        setTokenNumber(result.data);
+      const nameResult = await db.getBrandName();
+      if (nameResult.success) {
+        setBrandName(nameResult.data);
       }
     } catch (error) {
-      console.error('Error loading token number:', error);
-    }
-  };
-
-  const handleResetToken = async () => {
-    if (!window.confirm('Are you sure you want to reset the token counter? This will start token numbers from 1 again. Receipt numbers will NOT be affected.')) {
-      return;
-    }
-
-    setResetting(true);
-    try {
-      const result = await db.resetTokenCounter();
-      if (result.success) {
-        setTokenNumber(0);
-        alert('Token counter has been reset successfully! Next order will be Token #1');
-      } else {
-        alert('Failed to reset token counter');
-      }
-    } catch (error) {
-      console.error('Error resetting token:', error);
-      alert('Failed to reset token counter');
-    } finally {
-      setResetting(false);
+      console.error('Error loading brand settings:', error);
     }
   };
 
@@ -94,19 +86,26 @@ const Dashboard = ({ currentUser }) => {
       color: 'bg-gradient-to-br from-blue-400 to-blue-600',
       link: '/orders'
     },
-    {
+    // Conditional: Show Low Stock if stock management is enabled, otherwise show Week Sales
+    stats.stockManagementEnabled ? {
       title: 'Low Stock Items',
       value: stats.lowStock,
       icon: FiAlertCircle,
       color: 'bg-gradient-to-br from-red-400 to-red-600',
       link: '/products'
+    } : {
+      title: "This Week's Sales",
+      value: `PKR ${Math.round(stats.weekSales)}`,
+      icon: FiTrendingUp,
+      color: 'bg-gradient-to-br from-indigo-400 to-indigo-600',
+      link: '/reports'
     },
     {
-      title: 'Total Products',
-      value: stats.totalProducts,
+      title: stats.stockManagementEnabled ? 'Total Products' : 'Avg Order Value',
+      value: stats.stockManagementEnabled ? stats.totalProducts : `PKR ${Math.round(stats.avgOrderValue)}`,
       icon: FiPackage,
       color: 'bg-gradient-to-br from-purple-400 to-purple-600',
-      link: '/products'
+      link: stats.stockManagementEnabled ? '/products' : '/reports'
     }
   ];
 
@@ -156,26 +155,6 @@ const Dashboard = ({ currentUser }) => {
             </Link>
           );
         })}
-      </div>
-
-      {/* Token Reset Card */}
-      <div className="card bg-gradient-to-r from-purple-50 to-blue-50 border-2 border-purple-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex-1">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Token Management</h3>
-            <p className="text-gray-600 mb-1">Current Token Number: <span className="font-bold text-purple-600 text-2xl">{tokenNumber}</span></p>
-            <p className="text-sm text-gray-500">Next Token will be: #{tokenNumber + 1}</p>
-            <p className="text-xs text-gray-500 mt-2">Note: Resetting tokens will NOT affect receipt numbers</p>
-          </div>
-          <button
-            onClick={handleResetToken}
-            disabled={resetting}
-            className="btn-danger flex items-center justify-center space-x-2 whitespace-nowrap sm:self-start"
-          >
-            <FiRefreshCw className={resetting ? 'animate-spin' : ''} />
-            <span>{resetting ? 'Resetting...' : 'Reset Tokens'}</span>
-          </button>
-        </div>
       </div>
 
       {/* Quick Actions */}
@@ -259,6 +238,13 @@ const Dashboard = ({ currentUser }) => {
             >
               <FiTrendingUp className="text-3xl mx-auto mb-2" />
               <p className="font-semibold">View Reports</p>
+            </Link>
+            <Link
+              to="/settings"
+              className="bg-gradient-to-br from-gray-500 to-gray-600 text-white p-6 rounded-lg hover:shadow-lg transition-shadow text-center"
+            >
+              <FiSettings className="text-3xl mx-auto mb-2" />
+              <p className="font-semibold">Settings</p>
             </Link>
           </div>
         </div>
